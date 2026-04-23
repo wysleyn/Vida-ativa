@@ -68,14 +68,12 @@ app.post("/telegram", async (req, res) => {
         chat_id: chatId,
         text: `Shhh... 🤐 Você acaba de invadir a minha intimidade... 😈
 
-Eu sei exatamente o que você veio buscar aqui, e eu não vou te decepcionar. Se você quer ter acesso ao meu conteúdo mais exclusivo, sem censura e sem frescura, a hora é agora! 🔞🔥
-
-Preparei 4 formas de você entrar no meu mundo VIP. Escolha a que mais combina com o seu desejo e receba o acesso IMEDIATO via PIX:
+Eu sei exatamente o que você veio buscar aqui...
 
 👇 Clique no botão abaixo para gerar seu PIX agora:`
       });
 
-      // 🔘 Botões (SEM TESTE)
+      // 🔘 Botões
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: "Escolha seu plano:",
@@ -92,7 +90,6 @@ Preparei 4 formas de você entrar no meu mundo VIP. Escolha a que mais combina c
       return res.sendStatus(200);
     }
 
-    // ===== CLIQUE BOTÃO =====
     if (body.callback_query) {
       const callback = body.callback_query;
       const plan = callback.data;
@@ -122,7 +119,6 @@ Preparei 4 formas de você entrar no meu mundo VIP. Escolha a que mais combina c
 app.post("/syncpay", async (req, res) => {
   try {
     const payload = req.body;
-
     console.log("Webhook recebido:", payload);
 
     if (payload.data?.status !== "completed") {
@@ -153,6 +149,37 @@ app.post("/syncpay", async (req, res) => {
   } catch (err) {
     console.error(err.response?.data || err.message);
     return res.sendStatus(200);
+  }
+});
+
+// ================= TESTE CASH-IN =================
+app.get("/test-cashin", async (req, res) => {
+  try {
+    const response = await axios.post(
+      "https://api.syncpayments.com.br/api/partner/v1/cash-in",
+      {
+        amount: 2.00,
+        description: "Teste Node",
+        webhook_url: "https://bot-telegram-u7jp.onrender.com/syncpay",
+        client: {
+          name: "Teste",
+          cpf: "12345678900",
+          email: "teste@email.com",
+          phone: "11999999999"
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.TEST_TOKEN}`,
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        }
+      }
+    );
+
+    res.json(response.data);
+  } catch (err) {
+    res.json(err.response?.data || err.message);
   }
 });
 
