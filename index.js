@@ -182,7 +182,27 @@ app.get("/test-cashin", async (req, res) => {
     res.json(err.response?.data || err.message);
   }
 });
+app.get("/test-auth", async (req, res) => {
+  try {
+    const response = await axios.post(
+      "https://api.syncpayments.com.br/api/partner/v1/auth-token",
+      {
+        client_id: "54457f1a-f8f5-4239-9074-03782031725c",
+        client_secret: "COLOQUE_AQUI_O_SECRET_COMPLETO"
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        }
+      }
+    );
 
+    res.json(response.data);
+  } catch (err) {
+    res.json(err.response?.data || err.message);
+  }
+});
 // ================= SERVER =================
 app.listen(process.env.PORT || 3000, () => {
   console.log("Bot rodando...");
