@@ -79,7 +79,39 @@ Eu sei exatamente o que você veio buscar aqui...
     return res.sendStatus(200);
   }
 });
+app.get("/test-pix", async (req, res) => {
+  try {
 
+    const token = process.env.TEST_TOKEN;
+
+    const response = await axios.post(
+      "https://api.syncpayments.com.br/api/partner/v1/cash-in",
+      {
+        amount: 9.99,
+        description: "Teste Node",
+        webhook_url: "https://example.com",
+        client: {
+          name: "Teste",
+          cpf: "12345678900",
+          email: "teste@email.com",
+          phone: "11999999999"
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        }
+      }
+    );
+
+    res.json(response.data);
+
+  } catch (err) {
+    res.json(err.response?.data || err.message);
+  }
+});
 app.listen(process.env.PORT || 3000, () => {
   console.log("Bot rodando...");
 });
