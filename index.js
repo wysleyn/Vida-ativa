@@ -41,39 +41,6 @@ app.post("/telegram", async (req, res) => {
 
       const chatId = message.chat.id;
 
-      // 🖼 Fotos
-      await axios.post(`${TELEGRAM_API}/sendPhoto`, {
-        chat_id: chatId,
-        photo: "AgACAgEAAxkBAAMmaefX9d5_BnGOsZNe5jajEjs5mM0AAisMaxsv-DhH6hrvYqGw0ZsBAAMCAAN5AAM7BA"
-      });
-
-      await axios.post(`${TELEGRAM_API}/sendPhoto`, {
-        chat_id: chatId,
-        photo: "AgACAgEAAxkBAAMOaeeqn3T1AZSGEfeM1aeVemRpv38AAgoMaxtioDhHr6tDUDO92ZIBAAMCAAN5AAM7BA"
-      });
-
-      await axios.post(`${TELEGRAM_API}/sendPhoto`, {
-        chat_id: chatId,
-        photo: "AgACAgEAAxkBAAMoaefYGe3b4S1tZgkWEs20W9jYBKoAAiwMaxsv-DhHMSF_vk9wDigBAAMCAAN5AAM7BA"
-      });
-
-      // 🎬 Vídeo
-      await axios.post(`${TELEGRAM_API}/sendVideo`, {
-        chat_id: chatId,
-        video: "BAACAgEAAxkBAAMRaeeqn9Bdg5TLp7bA2KCu_-sX6E8AAi8IAAJioDhHoUy3V8Eymv07BA"
-      });
-
-      // 💬 Texto
-      await axios.post(`${TELEGRAM_API}/sendMessage`, {
-        chat_id: chatId,
-        text: `Shhh... 🤐 Você acaba de invadir a minha intimidade... 😈
-
-Eu sei exatamente o que você veio buscar aqui...
-
-👇 Clique no botão abaixo para gerar seu PIX agora:`
-      });
-
-      // 🔘 Botões
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: "Escolha seu plano:",
@@ -152,45 +119,16 @@ app.post("/syncpay", async (req, res) => {
   }
 });
 
-// ================= TESTE CASH-IN =================
-app.get("/test-cashin", async (req, res) => {
-  try {
-    const response = await axios.post(
-      "https://api.syncpayments.com.br/api/partner/v1/cash-in",
-      {
-        amount: 2.00,
-        description: "Teste Node",
-        webhook_url: "https://bot-telegram-u7jp.onrender.com/syncpay",
-        client: {
-          name: "Teste",
-          cpf: "12345678900",
-          email: "teste@email.com",
-          phone: "11999999999"
-        }
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.TEST_TOKEN}`,
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        }
-      }
-    );
-
-    res.json(response.data);
-  } catch (err) {
-    res.json(err.response?.data || err.message);
-  }
-});
+// ================= TESTE AUTH =================
 app.get("/test-auth", async (req, res) => {
   try {
     const response = await axios.post(
       "https://api.syncpayments.com.br/api/partner/v1/auth-token",
-     {
-  client_id: "54457f1a-f8f5-4239-9074-03782031725c",
-  client_secret: "e8fe2521-9dfb-4850-a90a-a8ef3bedf3af",
-  "01K1259MAXE0TNRXV2C2WQN2MV": "54457f1a-f8f5-4239-9074-03782031725c"
-}
+      {
+        client_id: "54457f1a-f8f5-4239-9074-03782031725c",
+        client_secret: "e8fe2521-9dfb-4850-a90a-a8ef3bedf3af",
+        "01K1259MAXE0TNRXV2C2WQN2MV": "54457f1a-f8f5-4239-9074-03782031725c"
+      },
       {
         headers: {
           "Content-Type": "application/json",
@@ -204,6 +142,7 @@ app.get("/test-auth", async (req, res) => {
     res.json(err.response?.data || err.message);
   }
 });
+
 // ================= SERVER =================
 app.listen(process.env.PORT || 3000, () => {
   console.log("Bot rodando...");
