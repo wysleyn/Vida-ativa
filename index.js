@@ -33,7 +33,6 @@ app.post("/telegram", async (req, res) => {
   try {
     const body = req.body;
 
-    // ===== MENSAGEM =====
     if (body.message) {
       const message = body.message;
 
@@ -76,13 +75,12 @@ Preparei 4 formas de você entrar no meu mundo VIP. Escolha a que mais combina c
 👇 Clique no botão abaixo para gerar seu PIX agora:`
       });
 
-      // 🔘 Botões
+      // 🔘 Botões (SEM TESTE)
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: "Escolha seu plano:",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "🧪 TESTE - R$1,00", url: "https://app.syncpayments.com.br/payment-link/a19d92fd-f7ed-4b65-bf24-17f7481a02e0" }],
             [{ text: "🥉 Bronze - R$9,99", callback_data: "bronze" }],
             [{ text: "🥈 Silver - R$17,90", callback_data: "silver" }],
             [{ text: "🥇 Gold - R$22,90", callback_data: "gold" }],
@@ -127,7 +125,6 @@ app.post("/syncpay", async (req, res) => {
 
     console.log("Webhook recebido:", payload);
 
-    // ✅ status correto da Syncpay
     if (payload.data?.status !== "completed") {
       return res.sendStatus(200);
     }
