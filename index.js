@@ -186,10 +186,11 @@ app.get("/test-auth", async (req, res) => {
   try {
     const response = await axios.post(
       "https://api.syncpayments.com.br/api/partner/v1/auth-token",
-      {
-        client_id: "54457f1a-f8f5-4239-9074-03782031725c",
-        client_secret: "COLOQUE_AQUI_O_SECRET_COMPLETO"
-      },
+     {
+  client_id: "54457f1a-f8f5-4239-9074-03782031725c",
+  client_secret: "e8fe2521-9dfb-4850-a90a-a8ef3bedf3af",
+  "01K1259MAXE0TNRXV2C2WQN2MV": "54457f1a-f8f5-4239-9074-03782031725c"
+}
       {
         headers: {
           "Content-Type": "application/json",
