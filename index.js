@@ -125,6 +125,8 @@ app.post("/syncpay", async (req, res) => {
   try {
     const data = req.body;
 
+    console.log("Webhook recebido:", data);
+
     if (data.status !== "paid") return res.sendStatus(200);
 
     const chatId = data.customer?.metadata?.telegram_user_id;
@@ -154,6 +156,7 @@ app.post("/syncpay", async (req, res) => {
   }
 });
 
+// ================= SERVER =================
 app.listen(process.env.PORT || 3000, () => {
   console.log("Bot rodando...");
 });
