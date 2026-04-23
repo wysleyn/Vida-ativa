@@ -33,7 +33,7 @@ app.post("/telegram", async (req, res) => {
   try {
     const body = req.body;
 
-    // ===== MENSAGEM =====
+    // ===== MENSAGEM /START =====
     if (body.message) {
       const message = body.message;
 
@@ -129,10 +129,10 @@ app.post("/syncpay", async (req, res) => {
 
     if (data.status !== "paid") return res.sendStatus(200);
 
-    const chatId = data.customer?.metadata?.telegram_user_id;
+    const users = Object.keys(pendingUsers);
+    if (users.length === 0) return res.sendStatus(200);
 
-    if (!chatId || !pendingUsers[chatId]) return res.sendStatus(200);
-
+    const chatId = users[users.length - 1];
     const plan = pendingUsers[chatId];
     const groupId = PLANS[plan].groupId;
 
