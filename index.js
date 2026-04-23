@@ -82,7 +82,6 @@ Preparei 4 formas de você entrar no meu mundo VIP. Escolha a que mais combina c
         text: "Escolha seu plano:",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "🧪 TESTE - R$1,00", url: "https://app.syncpayments.com.br/payment-link/a19d92fd-f7ed-4b65-bf24-17f7481a02e0" }],
             [{ text: "🥉 Bronze - R$9,99", callback_data: "bronze" }],
             [{ text: "🥈 Silver - R$17,90", callback_data: "silver" }],
             [{ text: "🥇 Gold - R$22,90", callback_data: "gold" }],
