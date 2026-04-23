@@ -7,15 +7,14 @@ app.use(express.json());
 const TOKEN = process.env.BOT_TOKEN;
 const TELEGRAM_API = `https://api.telegram.org/bot${TOKEN}`;
 
-// ================= WEBHOOK TELEGRAM =================
 app.post("/telegram", async (req, res) => {
   try {
 
-    // ===== 1️⃣ USUÁRIO ENVIOU MENSAGEM =====
+    // ===== MENSAGEM =====
     if (req.body.message) {
       const message = req.body.message;
 
-      // ✅ Só responde no privado
+      // ✅ Só privado
       if (message.chat.type !== "private") return res.sendStatus(200);
 
       // ✅ Só responde ao /start
@@ -23,56 +22,39 @@ app.post("/telegram", async (req, res) => {
 
       const chatId = message.chat.id;
 
-      // 🖼 Foto 1
+      // Fotos
       await axios.post(`${TELEGRAM_API}/sendPhoto`, {
         chat_id: chatId,
         photo: "AgACAgEAAxkBAAMmaefX9d5_BnGOsZNe5jajEjs5mM0AAisMaxsv-DhH6hrvYqGw0ZsBAAMCAAN5AAM7BA"
       });
 
-      // 🖼 Foto 2
       await axios.post(`${TELEGRAM_API}/sendPhoto`, {
         chat_id: chatId,
         photo: "AgACAgEAAxkBAAMOaeeqn3T1AZSGEfeM1aeVemRpv38AAgoMaxtioDhHr6tDUDO92ZIBAAMCAAN5AAM7BA"
       });
 
-      // 🖼 Foto 3
       await axios.post(`${TELEGRAM_API}/sendPhoto`, {
         chat_id: chatId,
         photo: "AgACAgEAAxkBAAMoaefYGe3b4S1tZgkWEs20W9jYBKoAAiwMaxsv-DhHMSF_vk9wDigBAAMCAAN5AAM7BA"
       });
 
-      // 🎬 Vídeo
+      // Vídeo
       await axios.post(`${TELEGRAM_API}/sendVideo`, {
         chat_id: chatId,
         video: "BAACAgEAAxkBAAMRaeeqn9Bdg5TLp7bA2KCu_-sX6E8AAi8IAAJioDhHoUy3V8Eymv07BA"
       });
 
-      // 💬 Texto de venda
+      // Texto
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: `Shhh... 🤐 Você acaba de invadir a minha intimidade... 😈
 
-Eu sei exatamente o que você veio buscar aqui, e eu não vou te decepcionar. Se você quer ter acesso ao meu conteúdo mais exclusivo, sem censura e sem frescura, a hora é agora! 🔞🔥
-
-Preparei 4 formas de você entrar no meu mundo VIP. Escolha a que mais combina com o seu desejo e receba o acesso IMEDIATO via PIX:
-
-💎 ESCOLHA SEU PLANO:
-🥉 PLANO BRONZE
-Acesso por 30 dias ao grupo principal.
-
-🥈 PLANO SILVER
-90 dias de acesso + bônus.
-
-🥇 PLANO GOLD
-Acesso semestral + conteúdo premium.
-
-💎 ACESSO VITALÍCIO
-Acesso para sempre.
+Eu sei exatamente o que você veio buscar aqui...
 
 👇 Clique no botão abaixo para gerar seu PIX agora:`
       });
 
-      // 🔘 Botões com links fixos
+      // Botões
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: "Escolha seu plano:",
@@ -89,14 +71,15 @@ Acesso para sempre.
       return res.sendStatus(200);
     }
 
+    // ✅ Ignora tudo que não seja /start
+    return res.sendStatus(200);
+
   } catch (err) {
     console.error(err.response?.data || err.message);
+    return res.sendStatus(200);
   }
-
-  res.sendStatus(200);
 });
 
-// ================= SERVER =================
 app.listen(process.env.PORT || 3000, () => {
   console.log("Bot rodando...");
 });
