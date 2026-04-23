@@ -58,15 +58,15 @@ Eu sei exatamente o que você veio buscar aqui...
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: "Escolha seu plano:",
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "🥉 Bronze - R$9,99", url: "https://app.syncpayments.com.br/payment-link/a19d5914-077b-4ca2-9363-aa23cd77304c" }],
-            [{ text: "🥈 Silver - R$17,90", url: "https://app.syncpayments.com.br/payment-link/a19d5a4a-5c88-478b-b4a7-d123f61c6d9e" }],
-            [{ text: "🥇 Gold - R$22,90", url: "https://app.syncpayments.com.br/payment-link/a19d5a88-6fd0-4f1e-87b4-89ab591e7c66" }],
-            [{ text: "💎 Vitalício - R$30,00", url: "https://app.syncpayments.com.br/payment-link/a19d5ac6-bd85-4967-bbba-cd4a025dda7a" }]
-          ]
-        }
-      });
+       reply_markup: {
+  inline_keyboard: [
+    [{ text: "🧪 TESTE - R$1,00", url: "https://app.syncpayments.com.br/payment-link/a19d92fd-f7ed-4b65-bf24-17f7481a02e0" }],
+    [{ text: "🥉 Bronze - R$9,99", url: "https://app.syncpayments.com.br/payment-link/a19d5914-077b-4ca2-9363-aa23cd77304c" }],
+    [{ text: "🥈 Silver - R$17,90", url: "https://app.syncpayments.com.br/payment-link/a19d5a4a-5c88-478b-b4a7-d123f61c6d9e" }],
+    [{ text: "🥇 Gold - R$22,90", url: "https://app.syncpayments.com.br/payment-link/a19d5a88-6fd0-4f1e-87b4-89ab591e7c66" }],
+    [{ text: "💎 Vitalício - R$30,00", url: "https://app.syncpayments.com.br/payment-link/a19d5ac6-bd85-4967-bbba-cd4a025dda7a" }]
+  ]
+}
 
       return res.sendStatus(200);
     }
