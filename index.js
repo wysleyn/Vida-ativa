@@ -33,7 +33,7 @@ app.post("/telegram", async (req, res) => {
   try {
     const body = req.body;
 
-    // ===== MENSAGEM /START =====
+    // ===== MENSAGEM =====
     if (body.message) {
       const message = body.message;
 
@@ -82,6 +82,7 @@ Preparei 4 formas de você entrar no meu mundo VIP. Escolha a que mais combina c
         text: "Escolha seu plano:",
         reply_markup: {
           inline_keyboard: [
+            [{ text: "🧪 TESTE - R$1,00", url: "https://app.syncpayments.com.br/payment-link/a19d92fd-f7ed-4b65-bf24-17f7481a02e0" }],
             [{ text: "🥉 Bronze - R$9,99", callback_data: "bronze" }],
             [{ text: "🥈 Silver - R$17,90", callback_data: "silver" }],
             [{ text: "🥇 Gold - R$22,90", callback_data: "gold" }],
@@ -122,11 +123,14 @@ Preparei 4 formas de você entrar no meu mundo VIP. Escolha a que mais combina c
 // ================= SYNCPAY WEBHOOK =================
 app.post("/syncpay", async (req, res) => {
   try {
-    const data = req.body;
+    const payload = req.body;
 
-    console.log("Webhook recebido:", data);
+    console.log("Webhook recebido:", payload);
 
-    if (data.status !== "paid") return res.sendStatus(200);
+    // ✅ status correto da Syncpay
+    if (payload.data?.status !== "completed") {
+      return res.sendStatus(200);
+    }
 
     const users = Object.keys(pendingUsers);
     if (users.length === 0) return res.sendStatus(200);
