@@ -97,8 +97,8 @@ app.post("/telegram", async (req, res) => {
           client: {
             name: callback.from.first_name || "Cliente",
             cpf: "16355642714",
-            email: "teste@email.com",
-            phone: "11999999999"
+            email: "mirellapkksalgada@gmail.com",
+            phone: "24999581944"
           },
           metadata: {
             telegram_user_id: chatId,
