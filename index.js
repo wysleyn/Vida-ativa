@@ -96,7 +96,7 @@ app.post("/telegram", async (req, res) => {
           webhook_url: "https://bot-telegram-u7jp.onrender.com/syncpay",
           client: {
             name: callback.from.first_name || "Cliente",
-            cpf: "12345678900",
+            cpf: "16355642714",
             email: "teste@email.com",
             phone: "11999999999"
           },
