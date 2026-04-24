@@ -113,7 +113,9 @@ app.post("/telegram", async (req, res) => {
           }
         }
       );
-
+      
+console.log("RETORNO CASHIN:", cashin.data);
+      
       const pixCode = cashin.data.pix_code;
 
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
