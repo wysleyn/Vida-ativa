@@ -4,35 +4,39 @@ const axios = require("axios");
 const app = express();
 app.use(express.json());
 
+// 🔐 Variáveis de ambiente
 const TOKEN = process.env.BOT_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
+const ACCOUNT_ID = process.env.ACCOUNT_ID;
+
 const TELEGRAM_API = `https://api.telegram.org/bot${TOKEN}`;
 
 const PLANS = {
   bronze: {
-    link: "https://app.syncpayments.com.br/payment-link/a19d5914-077b-4ca2-9363-aa23cd77304c",
+    price: 9.99,
     groupId: "-1003806027540"
   },
   silver: {
-    link: "https://app.syncpayments.com.br/payment-link/a19d5a4a-5c88-478b-b4a7-d123f61c6d9e",
+    price: 17.90,
     groupId: "-1003847434517"
   },
   gold: {
-    link: "https://app.syncpayments.com.br/payment-link/a19d5a88-6fd0-4f1e-87b4-89ab591e7c66",
+    price: 22.90,
     groupId: "-1003937048123"
   },
   vitalicio: {
-    link: "https://app.syncpayments.com.br/payment-link/a19d5ac6-bd85-4967-bbba-cd4a025dda7a",
+    price: 30.00,
     groupId: "-1003938274858"
   }
 };
-
-const pendingUsers = {};
 
 // ================= TELEGRAM =================
 app.post("/telegram", async (req, res) => {
   try {
     const body = req.body;
 
+    // ===== /START =====
     if (body.message) {
       const message = body.message;
 
@@ -57,19 +61,65 @@ app.post("/telegram", async (req, res) => {
       return res.sendStatus(200);
     }
 
+    // ===== CLIQUE NO PLANO =====
     if (body.callback_query) {
       const callback = body.callback_query;
       const plan = callback.data;
       const chatId = callback.message.chat.id;
 
-      if (PLANS[plan]) {
-        pendingUsers[chatId] = plan;
+      if (!PLANS[plan]) return res.sendStatus(200);
 
-        await axios.post(`${TELEGRAM_API}/sendMessage`, {
-          chat_id: chatId,
-          text: `✅ Pague via PIX aqui:\n${PLANS[plan].link}`
-        });
-      }
+      // ✅ 1. Gerar token
+      const auth = await axios.post(
+        "https://api.syncpayments.com.br/api/partner/v1/auth-token",
+        {
+          client_id: CLIENT_ID,
+          client_secret: CLIENT_SECRET,
+          "01K1259MAXE0TNRXV2C2WQN2MV": ACCOUNT_ID
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          }
+        }
+      );
+
+      const token = auth.data.access_token;
+
+      // ✅ 2. Criar cobrança
+      const cashin = await axios.post(
+        "https://api.syncpayments.com.br/api/partner/v1/cash-in",
+        {
+          amount: PLANS[plan].price,
+          description: `Plano ${plan}`,
+          webhook_url: "https://bot-telegram-u7jp.onrender.com/syncpay",
+          client: {
+            name: callback.from.first_name || "Cliente",
+            cpf: "12345678900",
+            email: "teste@email.com",
+            phone: "11999999999"
+          },
+          metadata: {
+            telegram_user_id: chatId,
+            plan: plan
+          }
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          }
+        }
+      );
+
+      const pixCode = cashin.data.pix_code;
+
+      await axios.post(`${TELEGRAM_API}/sendMessage`, {
+        chat_id: chatId,
+        text: `✅ PIX gerado!\n\nCopie e pague:\n\n${pixCode}\n\nApós o pagamento você receberá o acesso automaticamente.`
+      });
 
       return res.sendStatus(200);
     }
@@ -82,7 +132,7 @@ app.post("/telegram", async (req, res) => {
   }
 });
 
-// ================= SYNCPAY WEBHOOK =================
+// ================= WEBHOOK SYNCPAY =================
 app.post("/syncpay", async (req, res) => {
   try {
     const payload = req.body;
@@ -92,11 +142,13 @@ app.post("/syncpay", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const users = Object.keys(pendingUsers);
-    if (users.length === 0) return res.sendStatus(200);
+    const chatId = payload.data?.metadata?.telegram_user_id;
+    const plan = payload.data?.metadata?.plan;
 
-    const chatId = users[users.length - 1];
-    const plan = pendingUsers[chatId];
+    if (!chatId || !plan || !PLANS[plan]) {
+      return res.sendStatus(200);
+    }
+
     const groupId = PLANS[plan].groupId;
 
     const invite = await axios.post(`${TELEGRAM_API}/createChatInviteLink`, {
@@ -109,8 +161,6 @@ app.post("/syncpay", async (req, res) => {
       text: `🎉 Pagamento aprovado!\n\nClique para acessar:\n${invite.data.result.invite_link}`
     });
 
-    delete pendingUsers[chatId];
-
     return res.sendStatus(200);
 
   } catch (err) {
@@ -119,15 +169,15 @@ app.post("/syncpay", async (req, res) => {
   }
 });
 
-// ================= TESTE AUTH =================
+// ================= TESTES =================
 app.get("/test-auth", async (req, res) => {
   try {
     const response = await axios.post(
       "https://api.syncpayments.com.br/api/partner/v1/auth-token",
       {
-        client_id: "54457f1a-f8f5-4239-9074-03782031725c",
-        client_secret: "e8fe2521-9dfb-4850-a90a-a8ef3bedf3af",
-        "01K1259MAXE0TNRXV2C2WQN2MV": "54457f1a-f8f5-4239-9074-03782031725c"
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        "01K1259MAXE0TNRXV2C2WQN2MV": ACCOUNT_ID
       },
       {
         headers: {
