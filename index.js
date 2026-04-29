@@ -80,10 +80,10 @@ Preparei 4 formas de você entrar no meu mundo VIP.
         text: "Escolha seu plano:",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "🥉 Bronze - R$9,99", callback_data: "bronze" }],
-            [{ text: "🥈 Silver - R$17,90", callback_data: "silver" }],
-            [{ text: "🥇 Gold - R$22,90", callback_data: "gold" }],
-            [{ text: "💎 Vitalício - R$30,00", callback_data: "vitalicio" }]
+            [{ text: "🥉 Bronze - R$5,90", callback_data: "bronze" }],
+            [{ text: "🥈 Silver - R$9,90", callback_data: "silver" }],
+            [{ text: "🥇 Gold - R$14,90", callback_data: "gold" }],
+            [{ text: "💎 Vitalício - R$20,00", callback_data: "vitalicio" }]
           ]
         }
       });
