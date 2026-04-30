@@ -128,9 +128,31 @@ app.post("/telegram", async (req, res) => {
         video: "BAACAgEAAxkBAAMRaeeqn9Bdg5TLp7bA2KCu_-sX6E8AAi8IAAJioDhHoUy3V8Eymv07BA"
       });
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
-        chat_id: chatId,
-        text: `Shhh... 🤐 Você acaba de invadir a minha intimidade... 😈\n\nEu sei exatamente o que você veio buscar aqui, e eu não vou te decepcionar. Se você quer ter acesso ao meu conteúdo mais exclusivo, sem censura e sem frescura, a hora é agora! 🔞🔥\n\nPreparei 4 formas de você entrar no meu mundo VIP.\n\n👇 Clique no botão abaixo para gerar seu PIX agora:`
-      });
+  chat_id: chatId,
+  text: `🚨 VOCÊ CONSEGUIU ACESSO... MAS SÓ POR HOJE 🚨
+
+Eu não mando isso pra qualquer um. Você foi escolhido pra ver o que fica escondido do público. 😈
+
+Aqui dentro é diferente. Sem filtro, sem roupa, sem frescura. 🔞🔥
+
+Olha o que cada plano te entrega na hora:
+
+🥉 BRONZE - R$ 5,90
+Gostinho do que tá por vir. Fotos e videos exclusivos que não aparecem em lugar nenhum.
+
+🥈 SILVER - R$ 9,90
+O favorito! Fotos + meus vídeos mais quentes. Você vai querer mais.
+
+🥇 GOLD - R$ 14,90
+Visão total. Tudo do Silver + vídeos longos, sem corte e sem censura. Do jeito que você gosta.
+
+💎 VITALÍCIO - R$ 20,00
+ACESSO PARA SEMPRE. Todo conteúdo que já postei + tudo que vou postar. Novidades toda semana. Quem entra não quer sair. 🔒
+
+⚡ PIX gerado na hora. Link do grupo cai aqui no chat em segundos.
+
+👇 Escolha seu plano agora:`
+});
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: "Escolha seu plano:",
