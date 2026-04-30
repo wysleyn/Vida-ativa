@@ -15,7 +15,7 @@ const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL || "https://bot-telegram-u
 const PENDING_FILE = "/tmp/pending_users.json";
 
 const PLANS = {
-  bronze:   { nome: "Bronze",   valor: 1.00,  groupId: "-1003806027540" },
+  bronze:   { nome: "Bronze",   valor: 5.90,  groupId: "-1003806027540" },
   silver:   { nome: "Silver",   valor: 9.90,  groupId: "-1003847434517" },
   gold:     { nome: "Gold",     valor: 14.90, groupId: "-1003937048123" },
   vitalicio:{ nome: "Vitalício",valor: 20.00, groupId: "-1003938274858" }
@@ -257,5 +257,6 @@ app.get('/sigilopay', (req, res) => res.sendStatus(200));
 app.listen(process.env.PORT || 3000, () => {
   console.log("Bot rodando...");
 });
+
 
 
