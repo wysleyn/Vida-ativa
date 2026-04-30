@@ -252,6 +252,9 @@ app.post("/sigilopay", async (req, res) => {
   }
 });
 
+app.get('/sigilopay', (req, res) => res.sendStatus(200));
+
 app.listen(process.env.PORT || 3000, () => {
   console.log("Bot rodando...");
 });
+
