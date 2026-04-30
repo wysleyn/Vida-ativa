@@ -13,6 +13,7 @@ const SIGILO_SECRET_KEY = process.env.SIGILO_SECRET_KEY;
 const SIGILO_API_URL = "https://app.sigilopay.com.br";
 const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL || "https://bot-telegram-u7jp.onrender.com";
 const PENDING_FILE = "/tmp/pending_users.json";
+const STATS_FILE = "/tmp/stats.json";
 const ADMIN_ID = "8761512517";
 
 const PLANS = {
@@ -34,6 +35,21 @@ function loadPending() {
 function savePending(data) {
   try {
     fs.writeFileSync(PENDING_FILE, JSON.stringify(data), "utf8");
+  } catch(e) {}
+}
+
+function loadStats() {
+  try {
+    if (fs.existsSync(STATS_FILE)) {
+      return JSON.parse(fs.readFileSync(STATS_FILE, "utf8"));
+    }
+  } catch(e) {}
+  return { leads: 0, pixGerados: 0, pagamentos: 0, faturamento: 0 };
+}
+
+function saveStats(data) {
+  try {
+    fs.writeFileSync(STATS_FILE, JSON.stringify(data), "utf8");
   } catch(e) {}
 }
 
@@ -108,18 +124,36 @@ app.post("/telegram", async (req, res) => {
     if (body.message) {
       const message = body.message;
       if (message.chat.type !== "private") return res.sendStatus(200);
-      if (message.text !== "/start") return res.sendStatus(200);
 
       const chatId = message.chat.id;
+
+      // COMANDO /stats
+      if (message.text === "/stats") {
+        if (String(chatId) !== ADMIN_ID) return res.sendStatus(200);
+        const stats = loadStats();
+        await axios.post(`${TELEGRAM_API}/sendMessage`, {
+          chat_id: chatId,
+          text: `📊 *ESTATÍSTICAS DO BOT*\n\n👥 Leads: ${stats.leads}\n💳 PIX gerados: ${stats.pixGerados}\n✅ Pagamentos: ${stats.pagamentos}\n💰 Faturamento: R$ ${stats.faturamento.toFixed(2)}\n\n📈 Conversão Lead→PIX: ${stats.leads > 0 ? ((stats.pixGerados/stats.leads)*100).toFixed(1) : 0}%\n💵 Conversão PIX→Pago: ${stats.pixGerados > 0 ? ((stats.pagamentos/stats.pixGerados)*100).toFixed(1) : 0}%`,
+          parse_mode: "Markdown"
+        });
+        return res.sendStatus(200);
+      }
+
+      if (message.text !== "/start") return res.sendStatus(200);
+
+      // CONTA NOVO LEAD
+      const stats = loadStats();
+      stats.leads += 1;
+      saveStats(stats);
 
       // AVISO DE NOVO LEAD PARA O ADMIN
       axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: ADMIN_ID,
-        text: `🚀 *Novo Lead!*\n👤 Nome: ${message.from.first_name}\n🆔 ID: ${chatId}\n👤 Username: @${message.from.username || 'sem_username'}`,
+        text: `🚀 *Novo Lead!*\n👤 Nome: ${message.from.first_name}\n🆔 ID: ${chatId}\n👤 Username: @${message.from.username || 'sem_username'}\n\n📊 Total leads hoje: ${stats.leads}`,
         parse_mode: "Markdown"
       }).catch(e => {});
 
- await axios.post(`${TELEGRAM_API}/sendMediaGroup`, {
+      await axios.post(`${TELEGRAM_API}/sendMediaGroup`, {
         chat_id: chatId,
         media: [
           {
@@ -218,6 +252,11 @@ ACESSO PARA SEMPRE. Todo conteúdo que já postei + tudo que vou postar. Novidad
         pending[transactionId] = { chatId, plan };
         savePending(pending);
 
+        // CONTA PIX GERADO
+        const stats = loadStats();
+        stats.pixGerados += 1;
+        saveStats(stats);
+
         console.log(`PIX gerado: ${transactionId} para ${chatId} plano ${plan}`);
 
         // AVISO DE PIX GERADO
@@ -291,10 +330,16 @@ app.post("/sigilopay", async (req, res) => {
       parse_mode: "Markdown"
     });
 
+    // CONTA PAGAMENTO E FATURAMENTO
+    const stats = loadStats();
+    stats.pagamentos += 1;
+    stats.faturamento += PLANS[plan].valor;
+    saveStats(stats);
+
     // AVISO DE VENDA PARA O ADMIN
     axios.post(`${TELEGRAM_API}/sendMessage`, {
       chat_id: ADMIN_ID,
-      text: `💰 *VENDA REALIZADA!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💵 Valor: R$ ${PLANS[plan].valor.toFixed(2)}`,
+      text: `💰 *VENDA REALIZADA!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💵 Valor: R$ ${PLANS[plan].valor.toFixed(2)}\n\n📊 Total vendas: ${stats.pagamentos}\n💰 Faturamento total: R$ ${stats.faturamento.toFixed(2)}`,
       parse_mode: "Markdown"
     }).catch(e => {});
 
