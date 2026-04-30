@@ -1,4 +1,4 @@
-﻿const express = require("express");
+const express = require("express");
 const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
@@ -13,12 +13,13 @@ const SIGILO_SECRET_KEY = process.env.SIGILO_SECRET_KEY;
 const SIGILO_API_URL = "https://app.sigilopay.com.br";
 const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL || "https://bot-telegram-u7jp.onrender.com";
 const PENDING_FILE = "/tmp/pending_users.json";
+const ADMIN_ID = "8761512517";
 
 const PLANS = {
-  bronze:   { nome: "Bronze",   valor: 5.90,  groupId: "-1003806027540" },
-  silver:   { nome: "Silver",   valor: 9.90,  groupId: "-1003847434517" },
-  gold:     { nome: "Gold",     valor: 14.90, groupId: "-1003937048123" },
-  vitalicio:{ nome: "Vitalício",valor: 20.00, groupId: "-1003938274858" }
+  bronze:    { nome: "Bronze",    valor: 5.90,  groupId: "-1003806027540" },
+  silver:    { nome: "Silver",    valor: 9.90,  groupId: "-1003847434517" },
+  gold:      { nome: "Gold",      valor: 14.90, groupId: "-1003937048123" },
+  vitalicio: { nome: "Vitalício", valor: 20.00, groupId: "-1003938274858" }
 };
 
 function loadPending() {
@@ -111,6 +112,13 @@ app.post("/telegram", async (req, res) => {
 
       const chatId = message.chat.id;
 
+      // AVISO DE NOVO LEAD PARA O ADMIN
+      axios.post(`${TELEGRAM_API}/sendMessage`, {
+        chat_id: ADMIN_ID,
+        text: `🚀 *Novo Lead!*\n👤 Nome: ${message.from.first_name}\n🆔 ID: ${chatId}\n👤 Username: @${message.from.username || 'sem_username'}`,
+        parse_mode: "Markdown"
+      }).catch(e => {});
+
       await axios.post(`${TELEGRAM_API}/sendPhoto`, {
         chat_id: chatId,
         photo: "AgACAgEAAxkBAAMmaefX9d5_BnGOsZNe5jajEjs5mM0AAisMaxsv-DhH6hrvYqGw0ZsBAAMCAAN5AAM7BA"
@@ -127,9 +135,10 @@ app.post("/telegram", async (req, res) => {
         chat_id: chatId,
         video: "BAACAgEAAxkBAAMRaeeqn9Bdg5TLp7bA2KCu_-sX6E8AAi8IAAJioDhHoUy3V8Eymv07BA"
       });
+
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
-  chat_id: chatId,
-  text: `🚨 VOCÊ CONSEGUIU ACESSO... MAS SÓ POR HOJE 🚨
+        chat_id: chatId,
+        text: `🚨 VOCÊ CONSEGUIU ACESSO... MAS SÓ POR HOJE 🚨
 
 Eu não mando isso pra qualquer um. Você foi escolhido pra ver o que fica escondido do público. 😈
 
@@ -152,7 +161,8 @@ ACESSO PARA SEMPRE. Todo conteúdo que já postei + tudo que vou postar. Novidad
 ⚡ PIX gerado na hora. Link do grupo cai aqui no chat em segundos.
 
 👇 Escolha seu plano agora:`
-});
+      });
+
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: "Escolha seu plano:",
@@ -176,6 +186,13 @@ ACESSO PARA SEMPRE. Todo conteúdo que já postei + tudo que vou postar. Novidad
 
       if (!PLANS[plan]) return res.sendStatus(200);
 
+      // AVISO DE CLIQUE NO PLANO
+      axios.post(`${TELEGRAM_API}/sendMessage`, {
+        chat_id: ADMIN_ID,
+        text: `💳 *Lead clicou em um plano!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💰 Valor: R$ ${PLANS[plan].valor.toFixed(2)}`,
+        parse_mode: "Markdown"
+      }).catch(e => {});
+
       await axios.post(`${TELEGRAM_API}/answerCallbackQuery`, {
         callback_query_id: callback.id,
         text: "Gerando seu PIX... Aguarde!"
@@ -197,6 +214,13 @@ ACESSO PARA SEMPRE. Todo conteúdo que já postei + tudo que vou postar. Novidad
         savePending(pending);
 
         console.log(`PIX gerado: ${transactionId} para ${chatId} plano ${plan}`);
+
+        // AVISO DE PIX GERADO
+        axios.post(`${TELEGRAM_API}/sendMessage`, {
+          chat_id: ADMIN_ID,
+          text: `⚡ *PIX Gerado!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💰 Valor: R$ ${PLANS[plan].valor.toFixed(2)}\n🔑 Transaction: ${transactionId}`,
+          parse_mode: "Markdown"
+        }).catch(e => {});
 
         await axios.post(`${TELEGRAM_API}/sendMessage`, {
           chat_id: chatId,
@@ -221,6 +245,8 @@ ACESSO PARA SEMPRE. Todo conteúdo que já postei + tudo que vou postar. Novidad
   }
 });
 
+app.get("/sigilopay", (req, res) => res.sendStatus(200));
+
 app.post("/sigilopay", async (req, res) => {
   try {
     const payload = req.body;
@@ -236,15 +262,13 @@ app.post("/sigilopay", async (req, res) => {
                    status === "COMPLETED" ||
                    status === "OK";
 
-    console.log(`Event: ${event} | Status: ${status} | isPaid: ${isPaid} | transactionId: ${transactionId}`);
-
     if (!isPaid) return res.sendStatus(200);
 
     const pending = loadPending();
     const userData = pending[transactionId];
 
     if (!userData) {
-      console.log("Usuário não encontrado para transactionId:", transactionId);
+      console.log("Usuário não encontrado:", transactionId);
       return res.sendStatus(200);
     }
 
@@ -262,6 +286,13 @@ app.post("/sigilopay", async (req, res) => {
       parse_mode: "Markdown"
     });
 
+    // AVISO DE VENDA PARA O ADMIN
+    axios.post(`${TELEGRAM_API}/sendMessage`, {
+      chat_id: ADMIN_ID,
+      text: `💰 *VENDA REALIZADA!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💵 Valor: R$ ${PLANS[plan].valor.toFixed(2)}`,
+      parse_mode: "Markdown"
+    }).catch(e => {});
+
     delete pending[transactionId];
     savePending(pending);
 
@@ -274,12 +305,6 @@ app.post("/sigilopay", async (req, res) => {
   }
 });
 
-app.get('/sigilopay', (req, res) => res.sendStatus(200));
-
 app.listen(process.env.PORT || 3000, () => {
   console.log("Bot rodando...");
 });
-
-
-
-
