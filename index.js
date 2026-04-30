@@ -1,6 +1,7 @@
 ﻿const express = require("express");
 const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
+const fs = require("fs");
 
 const app = express();
 app.use(express.json());
@@ -11,15 +12,29 @@ const SIGILO_PUBLIC_KEY = process.env.SIGILO_PUBLIC_KEY;
 const SIGILO_SECRET_KEY = process.env.SIGILO_SECRET_KEY;
 const SIGILO_API_URL = "https://app.sigilopay.com.br";
 const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL || "https://bot-telegram-u7jp.onrender.com";
+const PENDING_FILE = "/tmp/pending_users.json";
 
 const PLANS = {
-  bronze: { nome: "Bronze", valor: 5.90, groupId: "-1003806027540" },
-  silver: { nome: "Silver", valor: 9.90, groupId: "-1003847434517" },
-  gold: { nome: "Gold", valor: 14.90, groupId: "-1003937048123" },
-  vitalicio: { nome: "Vitalício", valor: 20.00, groupId: "-1003938274858" }
+  bronze:   { nome: "Bronze",   valor: 5.90,  groupId: "-1003806027540" },
+  silver:   { nome: "Silver",   valor: 9.90,  groupId: "-1003847434517" },
+  gold:     { nome: "Gold",     valor: 14.90, groupId: "-1003937048123" },
+  vitalicio:{ nome: "Vitalício",valor: 20.00, groupId: "-1003938274858" }
 };
 
-const pendingUsers = {};
+function loadPending() {
+  try {
+    if (fs.existsSync(PENDING_FILE)) {
+      return JSON.parse(fs.readFileSync(PENDING_FILE, "utf8"));
+    }
+  } catch(e) {}
+  return {};
+}
+
+function savePending(data) {
+  try {
+    fs.writeFileSync(PENDING_FILE, JSON.stringify(data), "utf8");
+  } catch(e) {}
+}
 
 function generateValidCPF() {
   const randomDigit = () => Math.floor(Math.random() * 10);
@@ -100,27 +115,22 @@ app.post("/telegram", async (req, res) => {
         chat_id: chatId,
         photo: "AgACAgEAAxkBAAMmaefX9d5_BnGOsZNe5jajEjs5mM0AAisMaxsv-DhH6hrvYqGw0ZsBAAMCAAN5AAM7BA"
       });
-
       await axios.post(`${TELEGRAM_API}/sendPhoto`, {
         chat_id: chatId,
         photo: "AgACAgEAAxkBAAMOaeeqn3T1AZSGEfeM1aeVemRpv38AAgoMaxtioDhHr6tDUDO92ZIBAAMCAAN5AAM7BA"
       });
-
       await axios.post(`${TELEGRAM_API}/sendPhoto`, {
         chat_id: chatId,
         photo: "AgACAgEAAxkBAAMoaefYGe3b4S1tZgkWEs20W9jYBKoAAiwMaxsv-DhHMSF_vk9wDigBAAMCAAN5AAM7BA"
       });
-
       await axios.post(`${TELEGRAM_API}/sendVideo`, {
         chat_id: chatId,
         video: "BAACAgEAAxkBAAMRaeeqn9Bdg5TLp7bA2KCu_-sX6E8AAi8IAAJioDhHoUy3V8Eymv07BA"
       });
-
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: `Shhh... 🤐 Você acaba de invadir a minha intimidade... 😈\n\nEu sei exatamente o que você veio buscar aqui, e eu não vou te decepcionar. Se você quer ter acesso ao meu conteúdo mais exclusivo, sem censura e sem frescura, a hora é agora! 🔞🔥\n\nPreparei 4 formas de você entrar no meu mundo VIP.\n\n👇 Clique no botão abaixo para gerar seu PIX agora:`
       });
-
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: "Escolha seu plano:",
@@ -160,7 +170,11 @@ app.post("/telegram", async (req, res) => {
         const pixCode = pixData.pix.code;
         const transactionId = pixData.transactionId;
 
-        pendingUsers[transactionId] = { chatId, plan };
+        const pending = loadPending();
+        pending[transactionId] = { chatId, plan };
+        savePending(pending);
+
+        console.log(`PIX gerado: ${transactionId} para ${chatId} plano ${plan}`);
 
         await axios.post(`${TELEGRAM_API}/sendMessage`, {
           chat_id: chatId,
@@ -188,7 +202,7 @@ app.post("/telegram", async (req, res) => {
 app.post("/sigilopay", async (req, res) => {
   try {
     const payload = req.body;
-    console.log("Webhook Sigilo Pay:", JSON.stringify(payload));
+    console.log("Webhook Sigilo Pay recebido:", JSON.stringify(payload));
 
     const event = payload?.event || "";
     const transaction = payload?.transaction || {};
@@ -200,9 +214,13 @@ app.post("/sigilopay", async (req, res) => {
                    status === "COMPLETED" ||
                    status === "OK";
 
+    console.log(`Event: ${event} | Status: ${status} | isPaid: ${isPaid} | transactionId: ${transactionId}`);
+
     if (!isPaid) return res.sendStatus(200);
 
-    const userData = pendingUsers[transactionId];
+    const pending = loadPending();
+    const userData = pending[transactionId];
+
     if (!userData) {
       console.log("Usuário não encontrado para transactionId:", transactionId);
       return res.sendStatus(200);
@@ -222,7 +240,10 @@ app.post("/sigilopay", async (req, res) => {
       parse_mode: "Markdown"
     });
 
-    delete pendingUsers[transactionId];
+    delete pending[transactionId];
+    savePending(pending);
+
+    console.log(`Acesso liberado para ${chatId} plano ${plan}`);
     return res.sendStatus(200);
 
   } catch (err) {
