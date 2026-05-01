@@ -188,14 +188,14 @@ async function gerarPix(chatId, plan) {
         phone: "(11) 99999-9999",
         document: generateValidCPF()
       },
-      products: [
-        {
-          id: plan,
-          name: `Plano ${plano.nome}`,
-          quantity: 1,
-          price: plano.valor
-        }
-      ]
+    products: [
+  {
+    id: "vitalicio",
+    name: `Plano ${plano.nome}`,
+    quantity: 1,
+    price: plano.valor
+  }
+]
     };
 
     const response = await axios.post(
