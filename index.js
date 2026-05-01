@@ -14,6 +14,7 @@ const SIGILO_API_URL = "https://app.sigilopay.com.br";
 const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL || "https://bot-telegram-u7jp.onrender.com";
 const PENDING_FILE = "/tmp/pending_users.json";
 const STATS_FILE = "/tmp/stats.json";
+const USER_STATE_FILE = "/tmp/user_state.json";
 const ADMIN_ID = "8761512517";
 
 const PLANS = {
@@ -50,6 +51,21 @@ function loadStats() {
 function saveStats(data) {
   try {
     fs.writeFileSync(STATS_FILE, JSON.stringify(data), "utf8");
+  } catch(e) {}
+}
+
+function loadUserState() {
+  try {
+    if (fs.existsSync(USER_STATE_FILE)) {
+      return JSON.parse(fs.readFileSync(USER_STATE_FILE, "utf8"));
+    }
+  } catch(e) {}
+  return {};
+}
+
+function saveUserState(data) {
+  try {
+    fs.writeFileSync(USER_STATE_FILE, JSON.stringify(data), "utf8");
   } catch(e) {}
 }
 
@@ -146,6 +162,14 @@ app.post("/telegram", async (req, res) => {
       stats.leads += 1;
       saveStats(stats);
 
+      // MARCA ESTADO DO USUÁRIO
+      const userState = loadUserState();
+      userState[chatId] = {
+        paid: false,
+        reminderSent: false
+      };
+      saveUserState(userState);
+
       // AVISO DE NOVO LEAD PARA O ADMIN
       axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: ADMIN_ID,
@@ -168,14 +192,14 @@ app.post("/telegram", async (req, res) => {
             type: "photo",
             media: "AgACAgEAAxkBAAMoaefYGe3b4S1tZgkWEs20W9jYBKoAAiwMaxsv-DhHMSF_vk9wDigBAAMCAAN5AAM7BA"
           },
-         {
-  type: "video",
-  media: "BAACAgEAAxkBAAMRaeeqn9Bdg5TLp7bA2KCu_-sX6E8AAi8IAAJioDhHoUy3V8Eymv07BA"
-},
-{
-  type: "video",
-  media: "BAACAgEAAxkBAAEdtTxp9A6sLHDExTVMT2PP41sHN9wT-AACcAYAAkF0oEc6eyWjMY5weDsE"
-}
+          {
+            type: "video",
+            media: "BAACAgEAAxkBAAMRaeeqn9Bdg5TLp7bA2KCu_-sX6E8AAi8IAAJioDhHoUy3V8Eymv07BA"
+          },
+          {
+            type: "video",
+            media: "BAACAgEAAxkBAAEdtTxp9A6sLHDExTVMT2PP41sHN9wT-AACcAYAAkF0oEc6eyWjMY5weDsE"
+          }
         ]
       });
 
@@ -218,6 +242,41 @@ ACESSO PARA SEMPRE. Todo conteúdo que já postei + tudo que vou postar. Novidad
           ]
         }
       });
+
+      // REMARKETING APÓS 4 MINUTOS PARA QUEM NÃO PAGOU
+      setTimeout(async () => {
+        try {
+          const state = loadUserState();
+          const current = state[chatId];
+
+          if (!current) return;
+          if (current.paid) return;
+          if (current.reminderSent) return;
+
+          await axios.post(`${TELEGRAM_API}/sendVideo`, {
+            chat_id: chatId,
+            video: "BAACAgEAAxkBAAEdtUxp9BP1olcmVVicLJAjhKwCA5SzEgAC2AYAAvuYQEcxPKPuahhCvTsE",
+            caption: `Oi mo, vi que você deu start... mas parou bem na hora que ia entrar no mundinho rosa 🥺
+
+Tá pensando em quê? Eu to aqui toda molhadinha imaginando você me chamando no direct pra brincar com sua putinha preferida 😘🍑
+
+Vou liberar o meu direct pra você se você comprar agora! Prometo que a gente vai gozar bem gostoso 🍆🤤
+
+Ultima chances, não me decepcione.... clica agora e me chama 👇👇`,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "Meu conteudo + meu direct (5,90)", callback_data: "bronze" }]
+              ]
+            }
+          });
+
+          state[chatId].reminderSent = true;
+          saveUserState(state);
+
+        } catch (e) {
+          console.log("Erro ao enviar lembrete:", e.message);
+        }
+      }, 4 * 60 * 1000);
 
       return res.sendStatus(200);
     }
@@ -322,6 +381,13 @@ app.post("/sigilopay", async (req, res) => {
 
     const { chatId, plan } = userData;
     const groupId = PLANS[plan].groupId;
+
+    // MARCA QUE PAGOU
+    const state = loadUserState();
+    if (state[chatId]) {
+      state[chatId].paid = true;
+      saveUserState(state);
+    }
 
     const invite = await axios.post(`${TELEGRAM_API}/createChatInviteLink`, {
       chat_id: groupId,
