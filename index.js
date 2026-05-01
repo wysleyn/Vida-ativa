@@ -15,13 +15,28 @@ const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL || "https://bot-telegram-u
 const PENDING_FILE = "/tmp/pending_users.json";
 const STATS_FILE = "/tmp/stats.json";
 const USER_STATE_FILE = "/tmp/user_state.json";
+const EXPIRY_FILE = "/tmp/expiry_users.json";
 const ADMIN_ID = "8761512517";
 
 const PLANS = {
-  bronze:    { nome: "Bronze",    valor: 5.90,  groupId: "-1003806027540" },
-  silver:    { nome: "Silver",    valor: 9.90,  groupId: "-1003847434517" },
-  gold:      { nome: "Gold",      valor: 14.90, groupId: "-1003937048123" },
-  vitalicio: { nome: "Vitalício", valor: 20.00, groupId: "-1003938274858" }
+  gostinho: {
+    nome: "Gostinho",
+    valor: 1.90,
+    groupId: "-1003806027540",
+    expiraDias: null
+  },
+  semanal: {
+    nome: "Semanal",
+    valor: 6.90,
+    groupId: "-1003938274858",
+    expiraDias: 7
+  },
+  vitalicio: {
+    nome: "Vitalício",
+    valor: 9.90,
+    groupId: "-1003938274858",
+    expiraDias: null
+  }
 };
 
 function loadPending() {
@@ -69,6 +84,21 @@ function saveUserState(data) {
   } catch(e) {}
 }
 
+function loadExpiry() {
+  try {
+    if (fs.existsSync(EXPIRY_FILE)) {
+      return JSON.parse(fs.readFileSync(EXPIRY_FILE, "utf8"));
+    }
+  } catch(e) {}
+  return {};
+}
+
+function saveExpiry(data) {
+  try {
+    fs.writeFileSync(EXPIRY_FILE, JSON.stringify(data), "utf8");
+  } catch(e) {}
+}
+
 function generateValidCPF() {
   const randomDigit = () => Math.floor(Math.random() * 10);
   const n = Array.from({ length: 9 }, randomDigit);
@@ -82,6 +112,64 @@ function generateValidCPF() {
   const cpf = [...n2, d2].join('');
   return `${cpf.slice(0,3)}.${cpf.slice(3,6)}.${cpf.slice(6,9)}-${cpf.slice(9,11)}`;
 }
+
+// VERIFICADOR DE EXPIRAÇÕES (roda a cada 10 minutos)
+setInterval(async () => {
+  try {
+    const expiry = loadExpiry();
+    const now = Date.now();
+
+    for (const userId in expiry) {
+      const item = expiry[userId];
+      if (item.expiresAt && now >= item.expiresAt) {
+        try {
+          // Expulsa do grupo
+          await axios.post(`${TELEGRAM_API}/banChatMember`, {
+            chat_id: item.groupId,
+            user_id: parseInt(userId)
+          });
+
+          // Desbane imediatamente (só expulsa, não bloqueia para sempre)
+          await axios.post(`${TELEGRAM_API}/unbanChatMember`, {
+            chat_id: item.groupId,
+            user_id: parseInt(userId)
+          });
+
+          // Avisa o usuário
+          await axios.post(`${TELEGRAM_API}/sendMessage`, {
+            chat_id: userId,
+            text: `⛔ *Seu acesso semanal expirou.*\n\nSe quiser continuar, escolha um novo plano:`,
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "⭐ Semanal - R$6,90", callback_data: "semanal" }],
+                [{ text: "💎 Vitalício - R$9,90", callback_data: "vitalicio" }]
+              ]
+            }
+          });
+
+          // Avisa o admin
+          axios.post(`${TELEGRAM_API}/sendMessage`, {
+            chat_id: ADMIN_ID,
+            text: `⛔ *Acesso expirado!*\n🆔 ID: ${userId}\n📌 Plano: Semanal`,
+            parse_mode: "Markdown"
+          }).catch(e => {});
+
+          // Remove do controle de expiração
+          delete expiry[userId];
+          saveExpiry(expiry);
+
+          console.log(`Usuário ${userId} removido do grupo por expiração`);
+
+        } catch(e) {
+          console.log(`Erro ao remover usuário ${userId}:`, e.message);
+        }
+      }
+    }
+  } catch(e) {
+    console.log("Erro no verificador de expirações:", e.message);
+  }
+}, 10 * 60 * 1000);
 
 async function gerarPix(chatId, plan) {
   try {
@@ -155,6 +243,23 @@ app.post("/telegram", async (req, res) => {
         return res.sendStatus(200);
       }
 
+      // DEEP LINKS - quando vem do botão fixo no canal
+      if (message.text && message.text.startsWith("/start semanal")) {
+        const userState = loadUserState();
+        userState[chatId] = { paid: false, reminderSent: false };
+        saveUserState(userState);
+        await gerarEEnviarPix(chatId, "semanal");
+        return res.sendStatus(200);
+      }
+
+      if (message.text && message.text.startsWith("/start vitalicio")) {
+        const userState = loadUserState();
+        userState[chatId] = { paid: false, reminderSent: false };
+        saveUserState(userState);
+        await gerarEEnviarPix(chatId, "vitalicio");
+        return res.sendStatus(200);
+      }
+
       if (message.text !== "/start") return res.sendStatus(200);
 
       // CONTA NOVO LEAD
@@ -164,10 +269,7 @@ app.post("/telegram", async (req, res) => {
 
       // MARCA ESTADO DO USUÁRIO
       const userState = loadUserState();
-      userState[chatId] = {
-        paid: false,
-        reminderSent: false
-      };
+      userState[chatId] = { paid: false, reminderSent: false };
       saveUserState(userState);
 
       // AVISO DE NOVO LEAD PARA O ADMIN
@@ -203,7 +305,7 @@ app.post("/telegram", async (req, res) => {
         ]
       });
 
-      await axios.post(`${TELEGRAM_API}/sendMessage`, {
+     await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: `🚨 VOCÊ CONSEGUIU ACESSO... MAS SÓ POR HOJE 🚨
 
@@ -213,16 +315,13 @@ Aqui dentro é diferente. Sem filtro, sem roupa, sem frescura. 🔞🔥
 
 Olha o que cada plano te entrega na hora:
 
-🥉 BRONZE - R$ 5,90
-Gostinho do que tá por vir. Fotos e videos exclusivos que não aparecem em lugar nenhum.
+🔥 GOSTINHO - R$ 1,90
+Um aperitivo do que tá por vir. Fotos e videos exclusivos que não aparecem em lugar nenhum.
 
-🥈 SILVER - R$ 9,90
-O favorito! Fotos + meus vídeos mais quentes. Você vai querer mais.
+⭐ TODO MEU CONTEÚDO POR 1 SEMANA - R$ 6,90
+Acesso total por 7 dias. Tudo que eu já postei, sem corte e sem censura. Do jeito que você gosta.
 
-🥇 GOLD - R$ 14,90
-Visão total. Tudo do Silver + vídeos longos, sem corte e sem censura. Do jeito que você gosta.
-
-💎 VITALÍCIO - R$ 20,00
+💎 VITALÍCIO - R$ 9,90
 ACESSO PARA SEMPRE. Todo conteúdo que já postei + tudo que vou postar. Novidades toda semana. Quem entra não quer sair. 🔒
 
 ⚡ PIX gerado na hora. Link do grupo cai aqui no chat em segundos.
@@ -235,15 +334,14 @@ ACESSO PARA SEMPRE. Todo conteúdo que já postei + tudo que vou postar. Novidad
         text: "Escolha seu plano:",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "🥉 Bronze - R$5,90", callback_data: "bronze" }],
-            [{ text: "🥈 Silver - R$9,90", callback_data: "silver" }],
-            [{ text: "🥇 Gold - R$14,90", callback_data: "gold" }],
-            [{ text: "💎 Vitalício - R$20,00", callback_data: "vitalicio" }]
+            [{ text: "🔥 Gostinho - R$1,90", callback_data: "gostinho" }],
+            [{ text: "⭐ Todo meu conteúdo por 1 semana - R$6,90", callback_data: "semanal" }],
+            [{ text: "💎 Vitalício - R$9,90", callback_data: "vitalicio" }]
           ]
         }
       });
 
-      // REMARKETING APÓS 4 MINUTOS PARA QUEM NÃO PAGOU
+      // REMARKETING APÓS 4 MINUTOS
       setTimeout(async () => {
         try {
           const state = loadUserState();
@@ -260,12 +358,12 @@ ACESSO PARA SEMPRE. Todo conteúdo que já postei + tudo que vou postar. Novidad
 
 Tá pensando em quê? Eu to aqui toda molhadinha imaginando você me chamando no direct pra brincar com sua putinha preferida 😘🍑
 
-Vou liberar o meu direct pra você se você comprar agora! Prometo que a gente vai gozar bem gostoso 🍆🤤
+Vou liberar o meu direct pra você se você comprar o plano vitalício agora! Prometo que a gente vai gozar bem gostoso 🍆🤤
 
-Ultima chances, não me decepcione.... clica agora e me chama 👇👇`,
+Ultima chances, não me decepcione.... clica agora e me chama 👇👇`,`,
             reply_markup: {
               inline_keyboard: [
-                [{ text: "Meu conteudo + meu direct (5,90)", callback_data: "bronze" }]
+                [{ text: "Meu conteudo + meu direct (9,90)", callback_data: "vitalicio" }]
               ]
             }
           });
@@ -300,46 +398,7 @@ Ultima chances, não me decepcione.... clica agora e me chama 👇👇`,
         text: "Gerando seu PIX... Aguarde!"
       });
 
-      await axios.post(`${TELEGRAM_API}/sendMessage`, {
-        chat_id: chatId,
-        text: "⏳ Gerando seu PIX... Aguarde alguns segundos."
-      });
-
-      const pixData = await gerarPix(chatId, plan);
-
-      if (pixData && pixData.pix && pixData.pix.code) {
-        const pixCode = pixData.pix.code;
-        const transactionId = pixData.transactionId;
-
-        const pending = loadPending();
-        pending[transactionId] = { chatId, plan };
-        savePending(pending);
-
-        // CONTA PIX GERADO
-        const stats = loadStats();
-        stats.pixGerados += 1;
-        saveStats(stats);
-
-        console.log(`PIX gerado: ${transactionId} para ${chatId} plano ${plan}`);
-
-        // AVISO DE PIX GERADO
-        axios.post(`${TELEGRAM_API}/sendMessage`, {
-          chat_id: ADMIN_ID,
-          text: `⚡ *PIX Gerado!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💰 Valor: R$ ${PLANS[plan].valor.toFixed(2)}\n🔑 Transaction: ${transactionId}`,
-          parse_mode: "Markdown"
-        }).catch(e => {});
-
-        await axios.post(`${TELEGRAM_API}/sendMessage`, {
-          chat_id: chatId,
-          text: `✅ *PIX GERADO COM SUCESSO!*\n\n💰 *Valor:* R$ ${PLANS[plan].valor.toFixed(2)}\n📌 *Plano:* ${PLANS[plan].nome}\n\n👇 *Clique no código abaixo para copiar:*\n\n\`${pixCode}\`\n\n📱 Abra seu banco e use *Pix Copia e Cola*\n\n✅ O acesso será liberado automaticamente após o pagamento!`,
-          parse_mode: "Markdown"
-        });
-      } else {
-        await axios.post(`${TELEGRAM_API}/sendMessage`, {
-          chat_id: chatId,
-          text: "❌ Erro ao gerar PIX. Tente novamente."
-        });
-      }
+      await gerarEEnviarPix(chatId, plan);
 
       return res.sendStatus(200);
     }
@@ -351,6 +410,47 @@ Ultima chances, não me decepcione.... clica agora e me chama 👇👇`,
     return res.sendStatus(200);
   }
 });
+
+async function gerarEEnviarPix(chatId, plan) {
+  await axios.post(`${TELEGRAM_API}/sendMessage`, {
+    chat_id: chatId,
+    text: "⏳ Gerando seu PIX... Aguarde alguns segundos."
+  });
+
+  const pixData = await gerarPix(chatId, plan);
+
+  if (pixData && pixData.pix && pixData.pix.code) {
+    const pixCode = pixData.pix.code;
+    const transactionId = pixData.transactionId;
+
+    const pending = loadPending();
+    pending[transactionId] = { chatId, plan };
+    savePending(pending);
+
+    const stats = loadStats();
+    stats.pixGerados += 1;
+    saveStats(stats);
+
+    console.log(`PIX gerado: ${transactionId} para ${chatId} plano ${plan}`);
+
+    axios.post(`${TELEGRAM_API}/sendMessage`, {
+      chat_id: ADMIN_ID,
+      text: `⚡ *PIX Gerado!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💰 Valor: R$ ${PLANS[plan].valor.toFixed(2)}\n🔑 Transaction: ${transactionId}`,
+      parse_mode: "Markdown"
+    }).catch(e => {});
+
+    await axios.post(`${TELEGRAM_API}/sendMessage`, {
+      chat_id: chatId,
+      text: `✅ *PIX GERADO COM SUCESSO!*\n\n💰 *Valor:* R$ ${PLANS[plan].valor.toFixed(2)}\n📌 *Plano:* ${PLANS[plan].nome}\n\n👇 *Clique no código abaixo para copiar:*\n\n\`${pixCode}\`\n\n📱 Abra seu banco e use *Pix Copia e Cola*\n\n✅ O acesso será liberado automaticamente após o pagamento!`,
+      parse_mode: "Markdown"
+    });
+  } else {
+    await axios.post(`${TELEGRAM_API}/sendMessage`, {
+      chat_id: chatId,
+      text: "❌ Erro ao gerar PIX. Tente novamente."
+    });
+  }
+}
 
 app.get("/sigilopay", (req, res) => res.sendStatus(200));
 
@@ -380,13 +480,25 @@ app.post("/sigilopay", async (req, res) => {
     }
 
     const { chatId, plan } = userData;
-    const groupId = PLANS[plan].groupId;
+    const plano = PLANS[plan];
+    const groupId = plano.groupId;
 
     // MARCA QUE PAGOU
     const state = loadUserState();
     if (state[chatId]) {
       state[chatId].paid = true;
       saveUserState(state);
+    }
+
+    // SE FOR SEMANAL, REGISTRA EXPIRAÇÃO
+    if (plano.expiraDias) {
+      const expiry = loadExpiry();
+      expiry[chatId] = {
+        groupId: groupId,
+        expiresAt: Date.now() + (plano.expiraDias * 24 * 60 * 60 * 1000)
+      };
+      saveExpiry(expiry);
+      console.log(`Expiração registrada para ${chatId} em ${plano.expiraDias} dias`);
     }
 
     const invite = await axios.post(`${TELEGRAM_API}/createChatInviteLink`, {
@@ -396,20 +508,20 @@ app.post("/sigilopay", async (req, res) => {
 
     await axios.post(`${TELEGRAM_API}/sendMessage`, {
       chat_id: chatId,
-      text: `🎉 *Pagamento aprovado!*\n\nSeu acesso foi liberado! Clique abaixo para entrar no grupo VIP:\n${invite.data.result.invite_link}`,
+      text: `🎉 *Pagamento aprovado!*\n\nSeu acesso foi liberado! Clique abaixo para entrar:\n${invite.data.result.invite_link}`,
       parse_mode: "Markdown"
     });
 
     // CONTA PAGAMENTO E FATURAMENTO
     const stats = loadStats();
     stats.pagamentos += 1;
-    stats.faturamento += PLANS[plan].valor;
+    stats.faturamento += plano.valor;
     saveStats(stats);
 
     // AVISO DE VENDA PARA O ADMIN
     axios.post(`${TELEGRAM_API}/sendMessage`, {
       chat_id: ADMIN_ID,
-      text: `💰 *VENDA REALIZADA!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💵 Valor: R$ ${PLANS[plan].valor.toFixed(2)}\n\n📊 Total vendas: ${stats.pagamentos}\n💰 Faturamento total: R$ ${stats.faturamento.toFixed(2)}`,
+      text: `💰 *VENDA REALIZADA!*\n🆔 ID: ${chatId}\n📌 Plano: ${plano.nome}\n💵 Valor: R$ ${plano.valor.toFixed(2)}\n\n📊 Total vendas: ${stats.pagamentos}\n💰 Faturamento total: R$ ${stats.faturamento.toFixed(2)}`,
       parse_mode: "Markdown"
     }).catch(e => {});
 
