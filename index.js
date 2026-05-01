@@ -118,24 +118,18 @@ setInterval(async () => {
   try {
     const expiry = loadExpiry();
     const now = Date.now();
-
     for (const userId in expiry) {
       const item = expiry[userId];
       if (item.expiresAt && now >= item.expiresAt) {
         try {
-          // Expulsa do grupo
           await axios.post(`${TELEGRAM_API}/banChatMember`, {
             chat_id: item.groupId,
             user_id: parseInt(userId)
           });
-
-          // Desbane imediatamente (só expulsa, não bloqueia para sempre)
           await axios.post(`${TELEGRAM_API}/unbanChatMember`, {
             chat_id: item.groupId,
             user_id: parseInt(userId)
           });
-
-          // Avisa o usuário
           await axios.post(`${TELEGRAM_API}/sendMessage`, {
             chat_id: userId,
             text: `⛔ *Seu acesso semanal expirou.*\n\nSe quiser continuar, escolha um novo plano:`,
@@ -147,20 +141,14 @@ setInterval(async () => {
               ]
             }
           });
-
-          // Avisa o admin
           axios.post(`${TELEGRAM_API}/sendMessage`, {
             chat_id: ADMIN_ID,
             text: `⛔ *Acesso expirado!*\n🆔 ID: ${userId}\n📌 Plano: Semanal`,
             parse_mode: "Markdown"
           }).catch(e => {});
-
-          // Remove do controle de expiração
           delete expiry[userId];
           saveExpiry(expiry);
-
           console.log(`Usuário ${userId} removido do grupo por expiração`);
-
         } catch(e) {
           console.log(`Erro ao remover usuário ${userId}:`, e.message);
         }
@@ -188,14 +176,14 @@ async function gerarPix(chatId, plan) {
         phone: "(11) 99999-9999",
         document: generateValidCPF()
       },
-    products: [
-  {
-    id: "vitalicio",
-    name: `Plano ${plano.nome}`,
-    quantity: 1,
-    price: plano.valor
-  }
-]
+      products: [
+        {
+          id: "vitalicio",
+          name: `Plano ${plano.nome}`,
+          quantity: 1,
+          price: plano.valor
+        }
+      ]
     };
 
     const response = await axios.post(
@@ -221,6 +209,47 @@ async function gerarPix(chatId, plan) {
   }
 }
 
+async function gerarEEnviarPix(chatId, plan) {
+  await axios.post(`${TELEGRAM_API}/sendMessage`, {
+    chat_id: chatId,
+    text: "⏳ Gerando seu PIX... Aguarde alguns segundos."
+  });
+
+  const pixData = await gerarPix(chatId, plan);
+
+  if (pixData && pixData.pix && pixData.pix.code) {
+    const pixCode = pixData.pix.code;
+    const transactionId = pixData.transactionId;
+
+    const pending = loadPending();
+    pending[transactionId] = { chatId, plan };
+    savePending(pending);
+
+    const stats = loadStats();
+    stats.pixGerados += 1;
+    saveStats(stats);
+
+    console.log(`PIX gerado: ${transactionId} para ${chatId} plano ${plan}`);
+
+    axios.post(`${TELEGRAM_API}/sendMessage`, {
+      chat_id: ADMIN_ID,
+      text: `⚡ *PIX Gerado!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💰 Valor: R$ ${PLANS[plan].valor.toFixed(2)}\n🔑 Transaction: ${transactionId}`,
+      parse_mode: "Markdown"
+    }).catch(e => {});
+
+    await axios.post(`${TELEGRAM_API}/sendMessage`, {
+      chat_id: chatId,
+      text: `✅ *PIX GERADO COM SUCESSO!*\n\n💰 *Valor:* R$ ${PLANS[plan].valor.toFixed(2)}\n📌 *Plano:* ${PLANS[plan].nome}\n\n👇 *Clique no código abaixo para copiar:*\n\n\`${pixCode}\`\n\n📱 Abra seu banco e use *Pix Copia e Cola*\n\n✅ O acesso será liberado automaticamente após o pagamento!`,
+      parse_mode: "Markdown"
+    });
+  } else {
+    await axios.post(`${TELEGRAM_API}/sendMessage`, {
+      chat_id: chatId,
+      text: "❌ Erro ao gerar PIX. Tente novamente."
+    });
+  }
+}
+
 app.post("/telegram", async (req, res) => {
   try {
     const body = req.body;
@@ -243,19 +272,59 @@ app.post("/telegram", async (req, res) => {
         return res.sendStatus(200);
       }
 
+      // COMANDO /postar_canal
+      if (message.text === "/postar_canal") {
+        if (String(chatId) !== ADMIN_ID) return res.sendStatus(200);
+        const canalId = "-1003806027540";
+        const textoCanal = `Agora que você ja sentiu meu gostinho 🤤\nClica em um dos planos pra me conhecer a fundo.... se é que você me entende 😈🤭`;
+        try {
+          const post = await axios.post(`${TELEGRAM_API}/sendMessage`, {
+            chat_id: canalId,
+            text: textoCanal,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "⭐ Conteúdo por 1 semana - R$6,90", url: "https://t.me/Mirella_david_bot?start=semanal" }],
+                [{ text: "💎 Acesso Vitalício - R$9,90", url: "https://t.me/Mirella_david_bot?start=vitalicio" }]
+              ]
+            }
+          });
+          await axios.post(`${TELEGRAM_API}/pinChatMessage`, {
+            chat_id: canalId,
+            message_id: post.data.result.message_id
+          });
+          await axios.post(`${TELEGRAM_API}/sendMessage`, {
+            chat_id: chatId,
+            text: "✅ Mensagem postada e fixada no canal Bronze!"
+          });
+        } catch (e) {
+          console.log("Erro ao postar no canal:", e.message);
+          await axios.post(`${TELEGRAM_API}/sendMessage`, {
+            chat_id: chatId,
+            text: "❌ Erro ao postar no canal. Verifique se o bot é admin lá."
+          });
+        }
+        return res.sendStatus(200);
+      }
+
       // DEEP LINKS - quando vem do botão fixo no canal
-      if (message.text && message.text.startsWith("/start semanal")) {
+      if (message.text && message.text.includes("semanal")) {
         const userState = loadUserState();
         userState[chatId] = { paid: false, reminderSent: false };
         saveUserState(userState);
+        const stats = loadStats();
+        stats.leads += 1;
+        saveStats(stats);
         await gerarEEnviarPix(chatId, "semanal");
         return res.sendStatus(200);
       }
 
-      if (message.text && message.text.startsWith("/start vitalicio")) {
+      if (message.text && message.text.includes("vitalicio")) {
         const userState = loadUserState();
         userState[chatId] = { paid: false, reminderSent: false };
         saveUserState(userState);
+        const stats = loadStats();
+        stats.leads += 1;
+        saveStats(stats);
         await gerarEEnviarPix(chatId, "vitalicio");
         return res.sendStatus(200);
       }
@@ -305,7 +374,7 @@ app.post("/telegram", async (req, res) => {
         ]
       });
 
-     await axios.post(`${TELEGRAM_API}/sendMessage`, {
+      await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: `🚨 VOCÊ CONSEGUIU ACESSO... MAS SÓ POR HOJE 🚨
 
@@ -386,7 +455,6 @@ Ultima chances, não me decepcione.... clica agora e me chama 👇👇`,
 
       if (!PLANS[plan]) return res.sendStatus(200);
 
-      // AVISO DE CLIQUE NO PLANO
       axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: ADMIN_ID,
         text: `💳 *Lead clicou em um plano!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💰 Valor: R$ ${PLANS[plan].valor.toFixed(2)}`,
@@ -410,47 +478,6 @@ Ultima chances, não me decepcione.... clica agora e me chama 👇👇`,
     return res.sendStatus(200);
   }
 });
-
-async function gerarEEnviarPix(chatId, plan) {
-  await axios.post(`${TELEGRAM_API}/sendMessage`, {
-    chat_id: chatId,
-    text: "⏳ Gerando seu PIX... Aguarde alguns segundos."
-  });
-
-  const pixData = await gerarPix(chatId, plan);
-
-  if (pixData && pixData.pix && pixData.pix.code) {
-    const pixCode = pixData.pix.code;
-    const transactionId = pixData.transactionId;
-
-    const pending = loadPending();
-    pending[transactionId] = { chatId, plan };
-    savePending(pending);
-
-    const stats = loadStats();
-    stats.pixGerados += 1;
-    saveStats(stats);
-
-    console.log(`PIX gerado: ${transactionId} para ${chatId} plano ${plan}`);
-
-    axios.post(`${TELEGRAM_API}/sendMessage`, {
-      chat_id: ADMIN_ID,
-      text: `⚡ *PIX Gerado!*\n🆔 ID: ${chatId}\n📌 Plano: ${PLANS[plan].nome}\n💰 Valor: R$ ${PLANS[plan].valor.toFixed(2)}\n🔑 Transaction: ${transactionId}`,
-      parse_mode: "Markdown"
-    }).catch(e => {});
-
-    await axios.post(`${TELEGRAM_API}/sendMessage`, {
-      chat_id: chatId,
-      text: `✅ *PIX GERADO COM SUCESSO!*\n\n💰 *Valor:* R$ ${PLANS[plan].valor.toFixed(2)}\n📌 *Plano:* ${PLANS[plan].nome}\n\n👇 *Clique no código abaixo para copiar:*\n\n\`${pixCode}\`\n\n📱 Abra seu banco e use *Pix Copia e Cola*\n\n✅ O acesso será liberado automaticamente após o pagamento!`,
-      parse_mode: "Markdown"
-    });
-  } else {
-    await axios.post(`${TELEGRAM_API}/sendMessage`, {
-      chat_id: chatId,
-      text: "❌ Erro ao gerar PIX. Tente novamente."
-    });
-  }
-}
 
 app.get("/sigilopay", (req, res) => res.sendStatus(200));
 
@@ -483,14 +510,12 @@ app.post("/sigilopay", async (req, res) => {
     const plano = PLANS[plan];
     const groupId = plano.groupId;
 
-    // MARCA QUE PAGOU
     const state = loadUserState();
     if (state[chatId]) {
       state[chatId].paid = true;
       saveUserState(state);
     }
 
-    // SE FOR SEMANAL, REGISTRA EXPIRAÇÃO
     if (plano.expiraDias) {
       const expiry = loadExpiry();
       expiry[chatId] = {
@@ -512,13 +537,11 @@ app.post("/sigilopay", async (req, res) => {
       parse_mode: "Markdown"
     });
 
-    // CONTA PAGAMENTO E FATURAMENTO
     const stats = loadStats();
     stats.pagamentos += 1;
     stats.faturamento += plano.valor;
     saveStats(stats);
 
-    // AVISO DE VENDA PARA O ADMIN
     axios.post(`${TELEGRAM_API}/sendMessage`, {
       chat_id: ADMIN_ID,
       text: `💰 *VENDA REALIZADA!*\n🆔 ID: ${chatId}\n📌 Plano: ${plano.nome}\n💵 Valor: R$ ${plano.valor.toFixed(2)}\n\n📊 Total vendas: ${stats.pagamentos}\n💰 Faturamento total: R$ ${stats.faturamento.toFixed(2)}`,
