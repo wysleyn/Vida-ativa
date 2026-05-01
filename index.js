@@ -168,10 +168,14 @@ app.post("/telegram", async (req, res) => {
             type: "photo",
             media: "AgACAgEAAxkBAAMoaefYGe3b4S1tZgkWEs20W9jYBKoAAiwMaxsv-DhHMSF_vk9wDigBAAMCAAN5AAM7BA"
           },
-          {
-            type: "video",
-            media: "BAACAgEAAxkBAAMRaeeqn9Bdg5TLp7bA2KCu_-sX6E8AAi8IAAJioDhHoUy3V8Eymv07BA"
-          }
+         {
+  type: "video",
+  media: "BAACAgEAAxkBAAMRaeeqn9Bdg5TLp7bA2KCu_-sX6E8AAi8IAAJioDhHoUy3V8Eymv07BA"
+},
+{
+  type: "video",
+  media: "BAACAgEAAxkBAAEdtTxp9A6sLHDExTVMT2PP41sHN9wT-AACcAYAAkF0oEc6eyWjMY5weDsE"
+}
         ]
       });
 
