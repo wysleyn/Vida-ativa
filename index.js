@@ -360,7 +360,7 @@ Tá pensando em quê? Eu to aqui toda molhadinha imaginando você me chamando no
 
 Vou liberar o meu direct pra você se você comprar o plano vitalício agora! Prometo que a gente vai gozar bem gostoso 🍆🤤
 
-Ultima chances, não me decepcione.... clica agora e me chama 👇👇`,`,
+Ultima chances, não me decepcione.... clica agora e me chama 👇👇`,
             reply_markup: {
               inline_keyboard: [
                 [{ text: "Meu conteudo + meu direct (9,90)", callback_data: "vitalicio" }]
