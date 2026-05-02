@@ -348,30 +348,16 @@ app.post("/telegram", async (req, res) => {
         parse_mode: "Markdown"
       }).catch(e => {});
 
-      await axios.post(`${TELEGRAM_API}/sendMediaGroup`, {
+           await axios.post(`${TELEGRAM_API}/sendVideo`, {
         chat_id: chatId,
-        media: [
-          {
-            type: "photo",
-            media: "AgACAgEAAxkBAAMmaefX9d5_BnGOsZNe5jajEjs5mM0AAisMaxsv-DhH6hrvYqGw0ZsBAAMCAAN5AAM7BA"
-          },
-          {
-            type: "photo",
-            media: "AgACAgEAAxkBAAMOaeeqn3T1AZSGEfeM1aeVemRpv38AAgoMaxtioDhHr6tDUDO92ZIBAAMCAAN5AAM7BA"
-          },
-          {
-            type: "photo",
-            media: "AgACAgEAAxkBAAMoaefYGe3b4S1tZgkWEs20W9jYBKoAAiwMaxsv-DhHMSF_vk9wDigBAAMCAAN5AAM7BA"
-          },
-          {
-            type: "video",
-            media: "BAACAgEAAxkBAAMRaeeqn9Bdg5TLp7bA2KCu_-sX6E8AAi8IAAJioDhHoUy3V8Eymv07BA"
-          },
-          {
-            type: "video",
-            media: "BAACAgEAAxkBAAEdtTxp9A6sLHDExTVMT2PP41sHN9wT-AACcAYAAkF0oEc6eyWjMY5weDsE"
-          }
-        ]
+        protect_content: true,
+        video: "BAACAgEAAxkBAAEdtUxp9BP1olcmVVicLJAjhKwCA5SzEgAC2AYAAvuYQEcxPKPuahhCvTsE"
+      });
+
+      await axios.post(`${TELEGRAM_API}/sendVideo`, {
+        chat_id: chatId,
+        protect_content: true,
+        video: "BAACAgEAAxkBAAEdtTxp9A6sLHDExTVMT2PP41sHN9wT-AACcAYAAkF0oEc6eyWjMY5weDsE"
       });
 
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
