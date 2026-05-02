@@ -348,7 +348,7 @@ app.post("/telegram", async (req, res) => {
         parse_mode: "Markdown"
       }).catch(e => {});
 
-      await axios.post(`${TELEGRAM_API}/sendVideo`, {
+          await axios.post(`${TELEGRAM_API}/sendVideo`, {
         chat_id: chatId,
         protect_content: true,
         video: "BAACAgEAAxkBAAEdw4Np9i7MaE9NNcCY-RLttWEbJsCSewACbAcAArCysUeBXsI7VeN3kTsE"
@@ -359,9 +359,8 @@ app.post("/telegram", async (req, res) => {
       await axios.post(`${TELEGRAM_API}/sendVideo`, {
         chat_id: chatId,
         protect_content: true,
-        video: "BAACAgEAAxkBAAEdw4Vp9i7Tqeo_q8RayIdXr1ykycEFbwACbQcAArCysUfaTLIwNfBuLTsE"
+        video: "BAACAgEAAxkBAAEdw5Bp9jFV8NGDQ-PSxBRXHbsmyMrzNwACcQcAArCysUcPqttPHjoPLzsE"
       });
-
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
         chat_id: chatId,
         text: `🚨 VOCÊ CONSEGUIU ACESSO... MAS SÓ POR HOJE 🚨
