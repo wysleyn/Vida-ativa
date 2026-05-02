@@ -348,16 +348,18 @@ app.post("/telegram", async (req, res) => {
         parse_mode: "Markdown"
       }).catch(e => {});
 
-           await axios.post(`${TELEGRAM_API}/sendVideo`, {
+      await axios.post(`${TELEGRAM_API}/sendVideo`, {
         chat_id: chatId,
         protect_content: true,
-        video: "BAACAgEAAxkBAAEdtUxp9BP1olcmVVicLJAjhKwCA5SzEgAC2AYAAvuYQEcxPKPuahhCvTsE"
+        video: "BAACAgEAAxkBAAEdw4Np9i7MaE9NNcCY-RLttWEbJsCSewACbAcAArCysUeBXsI7VeN3kTsE"
       });
+
+      await new Promise(resolve => setTimeout(resolve, 800));
 
       await axios.post(`${TELEGRAM_API}/sendVideo`, {
         chat_id: chatId,
         protect_content: true,
-        video: "BAACAgEAAxkBAAEdtTxp9A6sLHDExTVMT2PP41sHN9wT-AACcAYAAkF0oEc6eyWjMY5weDsE"
+        video: "BAACAgEAAxkBAAEdw4Vp9i7Tqeo_q8RayIdXr1ykycEFbwACbQcAArCysUfaTLIwNfBuLTsE"
       });
 
       await axios.post(`${TELEGRAM_API}/sendMessage`, {
